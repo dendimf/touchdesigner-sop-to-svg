@@ -1,246 +1,177 @@
+# extensionHelperMOD (or similar) — put this in a Module or Extension DAT
 import os
-import subprocess
+import sys
 import platform
+import subprocess
+from pathlib import Path
+from typing import Optional
 
-def Check_dep(debug=False):
-	'''
-		Check for dependencies and project path.
-		
-		This method checks to see if the path for the project is included in sys.path.
-		This will ensure that the python modules used in the project will 
-		be respected by the Touch.
-		                
-		Notes
-		---------------
-		'self' does not need to be included in the Args section.
-		
-		Args
-		---------------
-		debug (bool):
-		> a bool to allow for us to print out the content of sys.path
-								
-		Returns
-		---------------
-		None
-	'''
+# ────────────────────────────────────────────────
+#   CONFIG
+# ────────────────────────────────────────────────
 
-	# our path for all non-standard python modules
-	dep_path 		= '{}/dep/python/'.format(project.folder)
+PROJECT_FOLDER = Path(project.folder)           # type: ignore[name-defined]
+DEP_ROOT       = PROJECT_FOLDER / "dep"
+PYTHON_DEP_DIR = DEP_ROOT / "python"
+SCRIPTS_SUBDIR = "scripts"                      # subfolder name for platform scripts + reqs.txt
 
-	# if our path is already present we can skip this step
-	if dep_path in sys.path:
-		pass
+# ────────────────────────────────────────────────
+#   Helpers
+# ────────────────────────────────────────────────
 
-	# insert the python path into our sys.path
-	else:
-		sys.path.insert(0, dep_path)
-
-	# print each path in sys.path if debug is true:
-	if debug:
-
-		for each in sys.path:
-			print(each)
-	else:
-		pass
-
-	pass
-
-def Install_python_external():
-	'''
-		Check and install any external modules.
-		
-		This method will go through all the necessary steps to enesure
-		that our external modules are loaded into our project specific
-		location. This approach assumes that external libraries should be 
-		housed with the project, rather than with the standalone python
-		installation, or with the Touch Installation. This ensrues a more consistent, 
-		reliable, and portable approach when working with non-standard python
-		modules. 
-		                
-		Notes
-		---------------
-		'self' does not need to be included in the Args section.
-		
-		Args
-		---------------
-		None
-								
-		Returns
-		---------------
-		None
-	'''
- 
-	dep_path 			= '{}/dep'.format(project.folder)
-	python_path 		= '{}/dep/python'.format(project.folder)
-	scripts_reqs_path 	= '{proj}/dep/{name}'.format(proj=project.folder, name=parent().par.Name)
-	requirements 		= '{}/requirements.txt'.format(scripts_reqs_path)
-	reqs_dat 			= op('reqs')
-	win_py_dep 			= '{}/update-dep-python-windows.cmd'.format(scripts_reqs_path)
-	mac_py_dep 			= '{}/update-dep-python-mac.sh'.format(scripts_reqs_path)
-
- 	# check to see if /dep is in the project folder
-	if os.path.isdir(dep_path):
-		pass
-	# create the direcotry if it's not there
-	else:
-		os.mkdir(dep_path)
-
- 	# check to see if /python is in the project folder
-	if os.path.isdir(python_path):
-		pass
-	# create the direcotry if it's not there
-	else:
-		os.mkdir(python_path)
-
- 	# check to see if there's a scripts and requirements folder
-	if os.path.isdir(scripts_reqs_path):
-		pass
-	# create the direcotry if it's not there
-	else:
-		os.mkdir(scripts_reqs_path)
-
-	# check to see if the requirements txt is in place
-	if os.path.isfile(requirements):
-		pass
-	else:
-		reqs_file 	= open(requirements, 'w')
-		reqs_file.write(reqs_dat.text)
-		reqs_file.close()
-
-	# check to see if our auto-generaetd scripts are in place
-	has_win_py 		= os.path.isfile(win_py_dep)
-	has_mac_py 		= os.path.isfile(mac_py_dep)
-
-	win_py_txt 		= me.mod.extHelperMOD.win_dep(scripts_reqs_path, python_path)
-	mac_py_txt 		= me.mod.extHelperMOD.mac_dep(scripts_reqs_path, python_path)
-
-	# identify platform
-	osPlatform 		= platform.system()
-
-	# on windows
-	if osPlatform == "Windows":
-		# create the script to handle grabbing our dependencies
-		req_file 	= open(win_py_dep, 'w')
-		req_file.write(win_py_txt)
-		req_file.close()
-
-		# check to see if there is anything in the python dep dir
-		# for now we'll assume that if there are files here we
-		# successfully installed our python dependencies
-		if len(os.listdir(python_path)) == 0:
-			subprocess.Popen([win_py_dep])
-
-		else:
-			pass				
-	# on mac
-	elif osPlatform == "Darwin":
-		# create the script to handle grabbing our dependencies
-		mac_file 	= open(mac_py_dep, 'w')
-		mac_file.write(mac_py_txt)
-		mac_file.close()
-
-		# change file permissions for the file
-		subprocess.call(['chmod', '755', mac_py_dep])
-
-		# change file to be executable
-		subprocess.call(['chmod', '+x', mac_py_dep])
-
-		# check to see if there is anything in the python dep dir
-		# for now we'll assume that if there are files here we
-		# successfully installed our python dependencies
-		if len(os.listdir(python_path)) == 0:
-			print("Running Install Script")
-			subprocess.Popen(["open", "-a", "Terminal.app", mac_py_dep])
-		else:
-			pass
-
-	else:
-		pass
-
-	return
-
-def win_dep(requirementsPath, targetPath):
-	'''
-		Format text for command line execution.
-		
-		This method returns a formatted script to be executed by windows to
-		both upgrade pip, and install any modules listed in the requirements
-		DAT.
-		                
-		Notes
-		---------------
-		'self' does not need to be included in the Args section.
-		
-		Args
-		---------------
-		requirementsPath (str):
-		> a string path to the requirements txt doc
-
-		targetPath (str):
-		> a string path to the target installation directory
-
-		Returns
-		---------------
-		formatted_win_txt (str):
-		> the formatted text for a .cmd file for automated installation
-	'''
-	win_txt = ''':: Update dependencies
-
-:: make sure pip is up to date
-python -m pip install --user --upgrade pip
-
-:: install requirements
-pip install -r {reqs}/requirements.txt --target="{target}"'''
-
-	formatted_win_txt = win_txt.format(reqs=requirementsPath, target=targetPath)
-	
-	return formatted_win_txt
+def ensure_directory(path: Path) -> None:
+    """Create directory if it doesn't exist."""
+    path.mkdir(parents=True, exist_ok=True)
 
 
-def mac_dep(requirementsPath, targetPath):
-	'''
-		Format text for command line execution.
-		
-		This method returns a formatted script to be executed by macOS to
-		both upgrade pip, and install any modules listed in the requirements
-		DAT.
-		                
-		Notes
-		---------------
-		'self' does not need to be included in the Args section.
-		
-		Args
-		---------------
-		requirementsPath (str):
-		> a string path to the requirements txt doc
+def write_if_changed(path: Path, content: str) -> bool:
+    """
+    Write content to file only if different → avoids unnecessary file changes.
+    Returns True if file was (re)written.
+    """
+    if path.is_file() and path.read_text(encoding="utf-8").strip() == content.strip():
+        return False
+    path.write_text(content, encoding="utf-8")
+    return True
 
-		targetPath (str):
-		> a string path to the target installation directory
 
-		Returns
-		---------------
-		formatted_mac_txt (str):
-		> the formatted text for a .sh file for automated installation
-	'''
-	mac_txt = '''
-#!/bin/bash 
+def add_project_dep_to_syspath() -> bool:
+    """Prepend project-specific python deps path to sys.path if missing."""
+    dep_str = str(PYTHON_DEP_DIR.resolve())
+    if dep_str in sys.path:
+        return False
 
-dep=$(dirname "$0")
-pythonDir=/python
+    sys.path.insert(0, dep_str)
+    return True
 
-# change current direcotry to where the script is run from
-dirname "$(readlink -f "$0")"
 
-# fix up pip with python3
-curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-python3 get-pip.py
+def get_requirements_path() -> Path:
+    """Location of requirements.txt for current component."""
+    # Assumes script is running in context of a component that has .par.Name
+    comp_name = parent().par.Name.val                               # type: ignore
+    return DEP_ROOT / SCRIPTS_SUBDIR / comp_name / "requirements.txt"
 
-# Update dependencies
 
-# make sure pip is up to date
-python3 -m pip install --user --upgrade pip
+# ────────────────────────────────────────────────
+#   Script templates (as multiline f-strings)
+# ────────────────────────────────────────────────
 
-# install requirements
-python3 -m pip install -r {reqs}/requirements.txt --target={target}'''
-	formatted_mac_txt = mac_txt.format(reqs=requirementsPath, target=targetPath)
-	return formatted_mac_txt
+def get_windows_install_script(reqs_dir: Path, target_dir: Path) -> str:
+    return f"""@echo off
+:: Auto-generated TouchDesigner dependency installer (Windows)
+:: Do not edit manually
+
+echo Updating pip...
+python -m pip install --upgrade pip
+
+echo Installing requirements to project folder...
+pip install --no-warn-script-location ^
+    -r "{reqs_dir}\\requirements.txt" ^
+    --target "{target_dir}"
+
+echo.
+echo Done. You may close this window.
+pause
+"""
+
+
+def get_macos_install_script(reqs_dir: Path, target_dir: Path) -> str:
+    return f"""#!/usr/bin/env bash
+# Auto-generated TouchDesigner dependency installer (macOS)
+# Do not edit manually
+
+set -euo pipefail
+
+echo "Updating pip..."
+python3 -m pip install --upgrade pip
+
+echo "Installing requirements..."
+python3 -m pip install --no-warn-script-location \\
+    -r "{reqs_dir}/requirements.txt" \\
+    --target "{target_dir}"
+
+echo ""
+echo "Done."
+read -p "Press Enter to close..."
+"""
+
+
+# ────────────────────────────────────────────────
+#   Public API (call these from onSetupParameters / onCook / button callback / etc.)
+# ────────────────────────────────────────────────
+
+def ensure_project_python_path(debug: bool = False) -> None:
+    """
+    Make sure dep/python is in sys.path (idempotent).
+    Call this early (e.g. on project start or extension init).
+    """
+    added = add_project_dep_to_syspath()
+
+    if debug or added:
+        print(f"[dep] Project python path: {PYTHON_DEP_DIR}")
+        if debug:
+            print("[dep] Current sys.path:")
+            for p in sys.path:
+                print(f"  {p}")
+
+
+def install_or_update_external_deps(debug: bool = False) -> None:
+    """
+    Idempotent setup:
+      • Create folders
+      • Write requirements.txt from 'reqs' DAT if needed
+      • Generate platform install script if needed
+      • Run install only if python/ folder is empty
+    """
+    ensure_directory(DEP_ROOT)
+    ensure_directory(PYTHON_DEP_DIR)
+
+    reqs_path = get_requirements_path()
+    ensure_directory(reqs_path.parent)
+
+    # Write requirements.txt from DAT if missing or empty
+    reqs_dat = op("reqs")  # type: ignore[name-defined]
+    if not reqs_path.is_file() or not reqs_path.read_text().strip():
+        if reqs_dat and reqs_dat.text.strip():
+            reqs_path.write_text(reqs_dat.text.strip() + "\n", encoding="utf-8")
+            print(f"[dep] Wrote requirements.txt → {reqs_path}")
+        else:
+            print("[dep] Warning: no requirements content found in 'reqs' DAT")
+
+    # Platform-specific logic
+    system = platform.system()
+
+    if system == "Windows":
+        script_path = reqs_path.parent / "update-deps-windows.cmd"
+        script_content = get_windows_install_script(reqs_path.parent, PYTHON_DEP_DIR)
+
+        if write_if_changed(script_path, script_content):
+            print(f"[dep] Updated Windows install script → {script_path}")
+
+        if not any(PYTHON_DEP_DIR.iterdir()):  # empty → install needed
+            print("[dep] Installing dependencies (Windows)...")
+            subprocess.Popen([str(script_path)], creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+    elif system == "Darwin":
+        script_path = reqs_path.parent / "update-deps-mac.sh"
+        script_content = get_macos_install_script(reqs_path.parent, PYTHON_DEP_DIR)
+
+        wrote = write_if_changed(script_path, script_content)
+
+        if wrote:
+            print(f"[dep] Updated macOS install script → {script_path}")
+            os.chmod(script_path, 0o755)
+
+        if not any(PYTHON_DEP_DIR.iterdir()):
+            print("[dep] Installing dependencies (macOS)...")
+            # Prefer opening in Terminal rather than background process
+            subprocess.call(["open", "-a", "Terminal", str(script_path)])
+
+    else:
+        print(f"[dep] Unsupported platform: {system} — skipping auto-install")
+
+
+# For debugging / manual trigger
+if __name__ == "__main__" and debug := True:
+    ensure_project_python_path(debug=debug)
+    install_or_update_external_deps(debug=debug)
